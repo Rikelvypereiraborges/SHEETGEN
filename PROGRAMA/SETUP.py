@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from tkinter import messagebox
+from tkinter import filedialog, messagebox
 import pandas as pd
 from datetime import datetime
 import sqlite3
@@ -11,7 +11,7 @@ ctk.set_default_color_theme("blue")
 class BancoDados:
     """Gerencia exclusivamente a comunicação com o arquivo .db existente."""
     def __init__(self):
-        self.db_name = "dados_contrato.db"
+        self.db_name = "dados_contratos.db"
         # Verifica se o arquivo realmente existe na pasta antes de prosseguir
         if not os.path.exists(self.db_name):
             messagebox.showerror("Erro de Arquivo", f"O banco de dados '{self.db_name}' não foi encontrado.")
@@ -47,7 +47,8 @@ class App(ctk.CTk):
         super().__init__()
         self.db = BancoDados()
         self.title("RickSheet - Sistema de Orçamentos")
-        self.geometry("1100x850")
+        self.state("zoomed")
+        self.geometry("1000x850")
         
         self.carrinho = []
 
@@ -137,20 +138,44 @@ class App(ctk.CTk):
         self.lbl_total.configure(text=f"TOTAL GERAL: R$ {total:,.2f}")
 
     def finalizar(self):
-        """Exporta os dados para Excel."""
+        """Abre uma janela para o usuário escolher onde salvar o arquivo Excel."""
         if not self.carrinho:
+            messagebox.showwarning("Aviso", "O carrinho está vazio!")
             return
-        df = pd.DataFrame(self.carrinho)
-        total_geral = df['Subtotal'].sum()
+            
+        # Sugestão de nome de arquivo com data e hora
+        nome_sugerido = f"Orcamento_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         
-        # Adiciona linha de total
-        linha_total = pd.DataFrame([{"ID": "", "Descrição": "VALOR TOTAL GERAL", "Unitário": "", "Qtd": "", "Dias": "", "Subtotal": total_geral}])
-        df_final = pd.concat([df, linha_total], ignore_index=True)
+        # Abre a janela de "Salvar Como"
+        caminho_arquivo = filedialog.asksaveasfilename(
+            defaultextension=".xlsx",
+            filetypes=[("Arquivos Excel", "*.xlsx"), ("Todos os arquivos", "*.*")],
+            initialfile=nome_sugerido,
+            title="Escolha onde salvar seu orçamento"
+        )
         
-        filename = f"Orcamento_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-        df_final.to_excel(filename, index=False)
-        
-        messagebox.showinfo("Sucesso", f"Planilha gerada!\nTotal: R$ {total_geral:,.2f}")
+        # Se o usuário não cancelar a operação
+        if caminho_arquivo:
+            df = pd.DataFrame(self.carrinho)
+            total_geral = df['Subtotal'].sum()
+            
+            # Adiciona linha de total
+            linha_total = pd.DataFrame([{
+                "ID": "", 
+                "Descrição": "VALOR TOTAL GERAL", 
+                "Unitário": "", 
+                "Qtd": "", 
+                "Dias": "", 
+                "Subtotal": total_geral
+            }])
+            df_final = pd.concat([df, linha_total], ignore_index=True)
+            
+            try:
+                # Salva o arquivo no caminho escolhido
+                df_final.to_excel(caminho_arquivo, index=False)
+                messagebox.showinfo("Sucesso", f"Planilha salva com sucesso!\nTotal: R$ {total_geral:,.2f}")
+            except Exception as e:
+                messagebox.showerror("Erro", f"Não foi possível salvar o arquivo: {e}")
 
 if __name__ == "__main__":
     app = App()
